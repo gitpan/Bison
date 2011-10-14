@@ -1,3 +1,4 @@
+Bison-0.01.tar.gz
 Changes
 gitignore
 ignore.txt
@@ -22,3 +23,4 @@ t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
+test.pl

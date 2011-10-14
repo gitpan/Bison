@@ -43,7 +43,7 @@ use strict;
 use 5.010;
 
 use vars qw/$bopts/;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our $bopts = {
     ipt      => '/sbin/iptables',
@@ -52,7 +52,8 @@ our $bopts = {
     ip_is    => 'dynamic',
     errors   => [],
     buffer   => [],
-    firewall => 'bison'
+    chains   => [],
+    firewall => 'bison',
 };
 
 use base 'Exporter';
@@ -65,7 +66,7 @@ our @EXPORT = qw/
     bison_finish
     source_nat
     preroute
-    chain_create
+    chain
     log_setup
     accept_local
     accept_all_from
@@ -85,11 +86,11 @@ It sets up the default firewall chain and a catchall filter.
 sub initfw {
     my $args = shift;
     # create main bison chain
-    chain_create($bopts->{firewall}, { jump => 'drop' });
+    chain('new', { name => $bopts->{firewall}, jump => 'drop' });
     log_setup($bopts->{firewall});
 
     # now the catchall filter, known as dropwall
-    chain_create('dropwall', { jump => 'drop'});
+    chain('new', { name => 'dropwall', jump => 'drop'});
     log_setup('dropwall', { prefix => 'Bison DropWall'});
 }
 
@@ -115,7 +116,7 @@ sub drop_bad_tcp_flags {
     $prefix = $prefix||'Bison BadFlags';
     ($bopts->{badflags}, $bopts->{badflags_prefix}) = ($chain, $prefix);
     # create a chain to handle them
-    chain_create($chain, { jump => 'drop' });
+    chain('new', { name => $chain, jump => 'drop' });
 
     # add alert options with defaults
     log_setup($chain, { prefix => $prefix});
@@ -200,27 +201,45 @@ sub drop_icmp {
     return 1;
 }
 
-=head2 chain_create
+=head2 chain_list
+=cut
 
-Creates a new custom chain. If you pass a hash argument you can set things like 
-a jump.
+=head2 chain
 
-    chain_create('mynewchain', { jump => 'accept' });
+Perform chain events.
+
+    chain('new', { name => 'my_new_chain', jump => 'drop' });
+    chain('list') # returns an array of chains you have created
 
 =cut
 
-sub chain_create {
-    my ($chain, $args) = @_;
+sub chain {
+    my ($do, $args) = @_;
 
-    ipt("-N $chain");
+    if ($do eq 'new') {
+        if (! defined $args->{name}) {
+            log_error('chan(): No name supplied');
+            return 0;
+        }
     
-    if ($args) {
-        for (keys %$args) {
-            if ($_ eq 'jump') {
-                my $jump = uc $args->{$_};
-                ipt("-A $chain -j $jump");
+        my $chain = $args->{name};
+        ipt("-N $chain");
+        if ($args) { 
+            for (keys %$args) {
+                if ($_ eq 'jump') {
+                    my $jump = uc $args->{$_};
+                    ipt("-A $chain -j $jump");
+                }
             }
         }
+        push(@{$bopts->{chains}}, $chain);
+    }
+    elsif ($do eq 'list') {
+        return @{$bopts->{chains}};
+    }
+    else {
+        log_error("chain(): No such option '$do'");
+        return 0;
     }
 
     return 1;
