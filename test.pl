@@ -1,19 +1,12 @@
 use Bison;
 
-initfw();
-
 override_global({verbose => 1});
-
-chain('new', {name => 'my_new_chain', jump => 'drop'});
-
-sub list_chains {
-    my $i = 0;
-    for (chain('list')) {
-        $i++;
-        print "$i: $_\n";
-    }
-}
-
-list_chains();
         
+chain ('new',{
+    name    => 'zerowall',
+    jump    => 'drop',
+});
+
+log_setup ('zerowall', { time => 10, duration => 'minute', prefix => 'ZeroWall' });
+
 bison_finish();

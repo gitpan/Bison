@@ -16,20 +16,28 @@ fun to build them.
 
 The synopsis is basic. All the methods have been exported. So a simple firewall script would be:
 
-    package MyFirewall;
-    
     use Bison;
     
-    initfw(); # this will be called when you use Bison in later releases
-    
     override_global({ip_address => '10.1.1.5'});
+    
+    # drop everything by default
     default_policy({
         INPUT   => 'DROP',
         FORWARD => 'ACCEPT'
         OUTPUT  => 'ACCEPT',
     });
     
+    # filter bad tcp packets into a special chain
     drop_bad_tcp_flags();
+
+    # create a custom chain and set default behaviour to drop
+    chain ('new', {
+        name => 'my_firewall',
+        jump => 'DROP',
+    });
+
+    # setup logging for the new chain
+    log_setup ('my_firewall', { time => 7, duration => 'minute', prefix => 'My Cool Firewall' });
     
     bison_finish(); 
 
@@ -42,8 +50,9 @@ use warnings;
 use strict;
 use 5.010;
 
+our $VERSION = '0.03';
+
 use vars qw/$bopts/;
-our $VERSION = '0.02';
 
 our $bopts = {
     ipt      => '/sbin/iptables',
@@ -55,6 +64,8 @@ our $bopts = {
     chains   => [],
     firewall => 'bison',
 };
+
+initfw(); # call initfw to setup main chains
 
 use base 'Exporter';
 our @EXPORT = qw/
